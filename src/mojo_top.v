@@ -6,7 +6,7 @@ module mojo_top(
     // cclk input from AVR, high when AVR is ready
     input cclk,
     // Outputs to the 8 onboard LEDs
-    output[7:0]led,
+    output led,
     // AVR SPI connections
     output spi_miso,
     input spi_ss,
@@ -17,16 +17,72 @@ module mojo_top(
     // Serial connections
     input avr_tx, // AVR Tx => FPGA Rx
     output avr_rx, // AVR Rx => FPGA Tx
-    input avr_rx_busy // AVR Rx buffer full
+    input avr_rx_busy, // AVR Rx buffer full
+
+    input [7:0] cpu_data,
+    input [14:0] cpu_addr,
+    input cpu_rw,
+    input cpu_rom_sel_n,
+    output cpu_irq_oc,
+    input cpu_m2,
+
+    inout [7:0] ppu_data,
+    input [13:0] ppu_addr,
+    input ppu_rd_n,
+    input ppu_we_n,
+
+    output vram_cs_n,
+    output vram_a10_n,
+
+    output flash_cs_n
     );
 
 wire rst = ~rst_n; // make reset active high
+wire avr_ready;
+wire read_flash_over;
+wire fpga_tx;
 
 // these signals should be high-z when not used
 assign spi_miso = 1'bz;
-assign avr_rx = 1'bz;
+assign avr_rx = avr_ready ? fpga_tx : 1'bz;
 assign spi_channel = 4'bzzzz;
 
-assign led = 8'b0;
+assign led = read_flash_over;
+
+assign cpu_irq_oc = 1'bz;
+
+assign vram_cs_n = ~ppu_addr[13];
+assign vram_a10_n = ppu_addr[10];
+
+wire flash_sck;  // ppu_data[2];
+wire flash_si;  // ppu_data[1];
+wire flash_so;  // ppu_data[3];
+
+wire [7:0] ppu_data_out;
+wire [7:0] ppu_data_out_run;
+assign ppu_data_out = ((!ppu_rd_n) && (!ppu_addr[13])) ? ppu_data_out_run : 8'bz;
+assign ppu_data = read_flash_over ? ppu_data_out : {5'bz, flash_sck, flash_si, 1'bz};
+assign flash_so = ppu_data[3];
+
+cclk_detector cclk_detector (
+    .clk(clk),
+    .rst(rst),
+    .cclk(cclk),
+    .ready(avr_ready)
+);
+
+decode_nec decode_nec (
+    .clk(clk),
+    .rst(rst),
+
+    .miso(flash_so),
+    .mosi(flash_si),
+    .sck(flash_sck),
+    .cs(flash_cs_n),
+
+    .ready(avr_ready),
+    .read_flash_over(read_flash_over),
+    .tx(fpga_tx)
+);
 
 endmodule

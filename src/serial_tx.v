@@ -11,7 +11,7 @@ module serial_tx #(
     );
 
     // clog2 is 'ceiling of log base 2' which gives you the number of bits needed to store a value
-    parameter CTR_SIZE = $clog2(CLK_PER_BIT);
+    parameter CTR_SIZE = 10;  // $clog2(CLK_PER_BIT);
 
     localparam STATE_SIZE = 2;
     localparam IDLE = 2'd0,
