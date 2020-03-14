@@ -34,7 +34,18 @@ module mojo_top(
     output vram_cs_n,
     output vram_a10_n,
 
-    output flash_cs_n
+    output flash_cs_n,
+
+    output sdram_clk,
+    output sdram_cle,
+    output sdram_dqm,
+    output sdram_cs,
+    output sdram_we,
+    output sdram_cas,
+    output sdram_ras,
+    output [1:0] sdram_ba,
+    output [12:0] sdram_a,
+    inout [7:0] sdram_dq
     );
 
 wire rst = ~rst_n; // make reset active high
@@ -64,6 +75,14 @@ assign ppu_data_out = ((!ppu_rd_n) && (!ppu_addr[13])) ? ppu_data_out_run : 8'bz
 assign ppu_data = read_flash_over ? ppu_data_out : {5'bz, flash_sck, flash_si, 1'bz};
 assign flash_so = ppu_data[3];
 
+wire [31:0] data_in, data_out;
+wire [22:0] sdram_addr;
+wire sdram_rw;  // 1 = write, 0 = read
+wire sdram_busy;
+wire in_valid;
+wire out_valid;
+
+
 cclk_detector cclk_detector (
     .clk(clk),
     .rst(rst),
@@ -80,9 +99,40 @@ decode_nec decode_nec (
     .sck(flash_sck),
     .cs(flash_cs_n),
 
+    .addr(sdram_addr),
+    .rw(sdram_rw),
+    .data_in(data_in[7:0]),
+    .data_out(data_out[7:0]),
+    .busy(sdram_busy),
+    .in_valid(in_valid),
+    .out_valid(out_valid),
+
     .ready(avr_ready),
     .read_flash_over(read_flash_over),
     .tx(fpga_tx)
+);
+
+sdram sdram (
+    .clk(fclk),
+    .rst(rst),
+    .sdram_clk(sdram_clk),
+    .sdram_cle(sdram_cle),
+    .sdram_cs(sdram_cs),
+    .sdram_cas(sdram_cas),
+    .sdram_ras(sdram_ras),
+    .sdram_we(sdram_we),
+    .sdram_dqm(sdram_dqm),
+    .sdram_ba(sdram_ba),
+    .sdram_a(sdram_a),
+    .sdram_dq(sdram_dq),
+
+    .addr(sdram_addr),
+    .rw(sdram_rw),
+    .data_in(data_in),
+    .data_out(data_out),
+    .busy(sdram_busy),
+    .in_valid(in_valid),
+    .out_valid(out_valid)
 );
 
 endmodule
