@@ -113,7 +113,7 @@ decode_nec decode_nec (
 );
 
 sdram sdram (
-    .clk(fclk),
+    .clk(clk),
     .rst(rst),
     .sdram_clk(sdram_clk),
     .sdram_cle(sdram_cle),

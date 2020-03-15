@@ -243,12 +243,14 @@ always @(*) begin
                 && (reg_nes_header[4] == 8'h02)
                 && (reg_nes_header[5] == 8'h01)) begin
 					 bytes_ctr_d = 15'h7FFF;  // ies bug. Don't align
-                state_d = TEST_READ_FLASH_16;
+                // state_d = TEST_READ_FLASH_16;
+                state_d = READ_PRG_1;
             end else begin
                 state_d = FAILURE;
             end
         end
 
+/*
         TEST_READ_FLASH_16: begin
             bytes_ctr_d = bytes_ctr_q + 15'd1;
             state_d = TEST_READ_FLASH_16_T;
@@ -273,7 +275,86 @@ always @(*) begin
                 end
             end
         end
+*/
 
+        /* read cpu rom */
+        READ_PRG_1: begin
+            start_d = 1'b1;
+            if (spi_busy == 1'b1) begin
+                bytes_ctr_d = bytes_ctr_q + 15'd1;
+                state_d = READ_PRG_1_T;
+            end
+        end
+        READ_PRG_1_T: begin
+            if ((spi_busy == 1'b0) && (!busy)) begin
+                sdram_addr_d = bytes_ctr_q + 23'h8000;
+                sdram_din_d = spi_out_data;
+                sdram_in_valid_d = 1'b1;
+                if (bytes_ctr_q == 15'h7FFF) begin  // 32kB
+                    state_d = READ_CHR_1;
+                end else begin
+                    state_d = READ_PRG_1;
+                end
+            end
+        end
+
+        /* read ppu rom */
+        READ_CHR_1: begin
+            start_d = 1'b1;
+            if (spi_busy == 1'b1) begin
+                bytes_ctr_d = bytes_ctr_q + 15'd1;
+                state_d = READ_CHR_1_T;
+            end
+        end
+        READ_CHR_1_T: begin
+            if ((spi_busy == 1'b0) && (!busy)) begin
+                sdram_addr_d = bytes_ctr_q;
+                sdram_din_d = spi_out_data;
+                sdram_in_valid_d = 1'b1;
+                if (bytes_ctr_q == 15'h1FFF) begin  // 8kB
+                    cs_d = 1'b1;
+                    sdram_rw_d = 1'b0;
+                    //bytes_ctr_d = 15'h7FFF;
+                    //start_d = TEST_READ_FLASH_16;
+                    state_d = OVER;
+                end else begin
+                    state_d = READ_CHR_1;
+                end
+            end
+        end
+
+/*
+        TEST_READ_FLASH_16: begin
+            bytes_ctr_d = bytes_ctr_q + 15'd1;
+            state_d = TEST_READ_FLASH_16_T;
+        end
+        TEST_READ_FLASH_16_T: begin
+            if (!busy) begin
+                sdram_addr_d = bytes_ctr_q;
+                sdram_in_valid_d = 1'b1;
+            end
+            if (out_valid) begin
+                uart_dout_d = data_out;
+                state_d = TEST_TX_16;
+            end
+        end
+        TEST_TX_16: begin
+            if (!tx_busy) begin
+                new_tx_data_d = 1'b1;
+                state_d = TEST_TX_16_T;
+            end
+        end
+        TEST_TX_16_T: begin
+            if (tx_busy) begin
+                new_tx_data_d = 1'b0;
+                if (bytes_ctr_q == 15'd255) begin
+                    state_d = OVER;
+                end else begin
+                    state_d = TEST_READ_FLASH_16;
+                end
+            end
+        end
+*/
 
         OVER: begin
         end
