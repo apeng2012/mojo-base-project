@@ -19,7 +19,7 @@ module mojo_top(
     output avr_rx, // AVR Rx => FPGA Tx
     input avr_rx_busy, // AVR Rx buffer full
 
-    input [7:0] cpu_data,
+    output [7:0] cpu_data,
     input [14:0] cpu_addr,
     input cpu_rw,
     input cpu_rom_sel_n,
@@ -82,6 +82,16 @@ wire sdram_busy;
 wire in_valid;
 wire out_valid;
 
+wire [7:0] c6502_data;
+assign cpu_data = (cpu_rw && (!cpu_rom_sel_n)) ? c6502_data : 8'bz;
+
+wire [22:0] addr_init;
+wire [22:0] addr_run;
+wire in_valid_init;
+wire in_valid_run;
+
+assign sdram_addr = read_flash_over ? addr_run : addr_init;
+assign in_valid = read_flash_over ? in_valid_run : in_valid_init;
 
 cclk_detector cclk_detector (
     .clk(clk),
@@ -99,12 +109,12 @@ decode_nec decode_nec (
     .sck(flash_sck),
     .cs(flash_cs_n),
 
-    .addr(sdram_addr),
+    .addr(addr_init),
     .rw(sdram_rw),
     .data_in(data_in[7:0]),
     .data_out(data_out[7:0]),
     .busy(sdram_busy),
-    .in_valid(in_valid),
+    .in_valid(in_valid_init),
     .out_valid(out_valid),
 
     .ready(avr_ready),
@@ -135,4 +145,20 @@ sdram sdram (
     .out_valid(out_valid)
 );
 
+bus6502 bus6502 (
+    .clk(clk),
+    .rst(rst),
+    .c6502_data(c6502_data),
+    .c6502_addr(cpu_addr),
+    .c6502_rw(cpu_rw),
+    .c6502_cs(cpu_rom_sel_n),
+
+    .ram_addr(addr_run),
+    .data_out(data_out[7:0]),
+    .busy(sdram_busy),
+    .in_valid(in_valid_run),
+    .out_valid(out_valid),
+
+    .init_sdram_data(1'b0)
+);
 endmodule

@@ -315,7 +315,7 @@ always @(*) begin
                     cs_d = 1'b1;
                     sdram_rw_d = 1'b0;
                     //bytes_ctr_d = 15'h7FFF;
-                    //start_d = TEST_READ_FLASH_16;
+                    //state_d = TEST_READ_FLASH_16;
                     state_d = OVER;
                 end else begin
                     state_d = READ_CHR_1;
