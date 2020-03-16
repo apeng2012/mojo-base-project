@@ -10,7 +10,7 @@ module decode_nec #(
     output sck,
     output cs,
 
-    output [22:0] addr,
+    output reg [22:0] addr,
     output rw,
     output [7:0] data_in,
     input [7:0] data_out,
@@ -69,11 +69,9 @@ assign read_flash_over = (state_q == OVER) ? 1'b1 : 1'b0;
 assign cs = cs_q;
 
 reg [7:0] sdram_din_d, sdram_din_q;
-reg [22:0] sdram_addr_d, sdram_addr_q;
 reg sdram_rw_d, sdram_rw_q;
 reg sdram_in_valid_d, sdram_in_valid_q;
 
-assign addr = sdram_addr_q;
 assign data_in = sdram_din_q;
 assign rw = sdram_rw_q;
 assign in_valid = sdram_in_valid_q;
@@ -117,7 +115,6 @@ always @(*) begin
     test_loop_cnt_d = test_loop_cnt_q;
     delay_cnt_d = delay_cnt_q;
     sdram_din_d = sdram_din_q;
-    sdram_addr_d = sdram_addr_q;
     sdram_rw_d = sdram_rw_q;
     sdram_in_valid_d = 1'b0;
 
@@ -287,7 +284,7 @@ always @(*) begin
         end
         READ_PRG_1_T: begin
             if ((spi_busy == 1'b0) && (!busy)) begin
-                sdram_addr_d = bytes_ctr_q + 23'h8000;
+                addr = bytes_ctr_q + 23'h8000;
                 sdram_din_d = spi_out_data;
                 sdram_in_valid_d = 1'b1;
                 if (bytes_ctr_q == 15'h7FFF) begin  // 32kB
@@ -308,7 +305,7 @@ always @(*) begin
         end
         READ_CHR_1_T: begin
             if ((spi_busy == 1'b0) && (!busy)) begin
-                sdram_addr_d = bytes_ctr_q;
+                addr = bytes_ctr_q;
                 sdram_din_d = spi_out_data;
                 sdram_in_valid_d = 1'b1;
                 if (bytes_ctr_q == 15'h1FFF) begin  // 8kB
@@ -330,7 +327,7 @@ always @(*) begin
         end
         TEST_READ_FLASH_16_T: begin
             if (!busy) begin
-                sdram_addr_d = bytes_ctr_q;
+                addr = bytes_ctr_q;
                 sdram_in_valid_d = 1'b1;
             end
             if (out_valid) begin
@@ -385,7 +382,6 @@ always @(posedge clk) begin
     test_loop_cnt_q <= test_loop_cnt_d;
     delay_cnt_q <= delay_cnt_d;
     sdram_din_q <= sdram_din_d;
-    sdram_addr_q <= sdram_addr_d;
     sdram_in_valid_q <= sdram_in_valid_d;
 end
 

@@ -159,6 +159,6 @@ bus6502 bus6502 (
     .in_valid(in_valid_run),
     .out_valid(out_valid),
 
-    .init_sdram_data(1'b0)
+    .init_sdram_data(read_flash_over)
 );
 endmodule
