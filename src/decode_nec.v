@@ -1,5 +1,5 @@
 module decode_nec #(
-    parameter CLK_RATE = 50000000,
+    parameter CLK_RATE = 100000000,
     parameter SERIAL_BAUD_RATE = 500000
     )(
     input clk,

@@ -93,15 +93,22 @@ wire in_valid_run;
 assign sdram_addr = read_flash_over ? addr_run : addr_init;
 assign in_valid = read_flash_over ? in_valid_run : in_valid_init;
 
+wire fclk;  // 100MHz
+
+clk_wiz clk_wiz (
+    .CLK_IN1(clk),
+    .CLK_OUT1(fclk)
+);
+
 cclk_detector cclk_detector (
-    .clk(clk),
+    .clk(fclk),
     .rst(rst),
     .cclk(cclk),
     .ready(avr_ready)
 );
 
 decode_nec decode_nec (
-    .clk(clk),
+    .clk(fclk),
     .rst(rst),
 
     .miso(flash_so),
@@ -123,7 +130,7 @@ decode_nec decode_nec (
 );
 
 sdram sdram (
-    .clk(clk),
+    .clk(fclk),
     .rst(rst),
     .sdram_clk(sdram_clk),
     .sdram_cle(sdram_cle),
@@ -146,7 +153,7 @@ sdram sdram (
 );
 
 bus6502 bus6502 (
-    .clk(clk),
+    .clk(fclk),
     .rst(rst),
     .c6502_data(c6502_data),
     .c6502_addr(cpu_addr),
