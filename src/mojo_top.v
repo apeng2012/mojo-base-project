@@ -158,7 +158,7 @@ bus6502 bus6502 (
     .c6502_data(c6502_data),
     .c6502_addr(cpu_addr),
     .c6502_rw(cpu_rw),
-    .c6502_cs(cpu_rom_sel_n),
+    .c6502_m2(cpu_m2),
 
     .ram_addr(addr_run),
     .data_out(data_out[7:0]),
