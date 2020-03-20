@@ -5,8 +5,6 @@ module mojo_top(
     input rst_n,
     // cclk input from AVR, high when AVR is ready
     input cclk,
-    // Outputs to the 8 onboard LEDs
-    output led,
     // AVR SPI connections
     output spi_miso,
     input spi_ss,
@@ -23,18 +21,17 @@ module mojo_top(
     input [14:0] cpu_addr,
     input cpu_rw,
     input cpu_rom_sel_n,
-    output cpu_irq_oc,
     input cpu_m2,
 
-    inout [7:0] ppu_data,
+    output [7:0] ppu_data,
     input [13:0] ppu_addr,
     input ppu_rd_n,
     input ppu_we_n,
 
-    output vram_cs_n,
-    output vram_a10_n,
-
     output flash_cs_n,
+    output flash_sck,
+    output flash_si,
+    input flash_so,
 
     output sdram_clk,
     output sdram_cle,
@@ -58,22 +55,8 @@ assign spi_miso = 1'bz;
 assign avr_rx = avr_ready ? fpga_tx : 1'bz;
 assign spi_channel = 4'bzzzz;
 
-assign led = read_flash_over;
-
-assign cpu_irq_oc = 1'bz;
-
-assign vram_cs_n = ~ppu_addr[13];
-assign vram_a10_n = ppu_addr[10];
-
-wire flash_sck;  // ppu_data[2];
-wire flash_si;  // ppu_data[1];
-wire flash_so;  // ppu_data[3];
-
-wire [7:0] ppu_data_out;
 wire [7:0] ppu_data_out_run;
-assign ppu_data_out = ((!ppu_rd_n) && (!ppu_addr[13])) ? ppu_data_out_run : 8'bz;
-assign ppu_data = read_flash_over ? ppu_data_out : {5'bz, flash_sck, flash_si, 1'bz};
-assign flash_so = ppu_data[3];
+assign ppu_data = ((!ppu_rd_n) && (!ppu_addr[13])) ? ppu_data_out_run : 8'bz;
 
 wire [31:0] data_in, data_out;
 wire [22:0] sdram_addr;
