@@ -24,6 +24,8 @@ localparam IDLE = 0,
 reg [STATE_SIZE-1:0] state_d, state_q = IDLE;
 reg [7:0] c2c02_data_d, c2c02_data_q;
 reg in_valid_d, in_valid_q;
+reg [13:0] old_addr_d, old_addr_q;
+reg [13:0] tmp_addr_d, tmp_addr_q;
 
 assign c2c02_data = c2c02_data_q;
 assign in_valid = in_valid_q;
@@ -33,9 +35,12 @@ always @(*) begin
     state_d = state_q;
     in_valid_d = 1'b0;
     c2c02_data_d = c2c02_data_q;
+    old_addr_d = old_addr_q;
+    tmp_addr_d = tmp_addr_q;
 
     if (state_q == IDLE) begin
-        if (!c2c02_rd && !c2c02_addr[13]) begin
+        if (!c2c02_addr[13] && old_addr_q != c2c02_addr) begin
+            tmp_addr_d = c2c02_addr;
             state_d = FETCH;
         end
     end
@@ -48,17 +53,12 @@ always @(*) begin
             end
             if (out_valid) begin
                 c2c02_data_d = data_out;
-                state_d = RELEASE;
+                old_addr_d = tmp_addr_q;
+                state_d = IDLE;
             end
         end
         else begin
-            state_d = RELEASE;  // 数据没有准备好直接推出，等待下次访问
-        end
-    end
-
-    else if (state_q == RELEASE) begin
-        if (c2c02_rd) begin
-            state_d = IDLE;
+            state_d = IDLE;  // 数据没有准备好直接推出，等待下次访问
         end
     end
 end
@@ -67,11 +67,14 @@ end
 always @(posedge clk) begin
     if (rst) begin
         state_q <= IDLE;
+        old_addr_q <= 14'h3FFF;
     end
     else begin
         state_q <= state_d;
+        old_addr_q <= old_addr_d;
     end
     c2c02_data_q <= c2c02_data_d;
     in_valid_q <= in_valid_d;
+    tmp_addr_q <= tmp_addr_d;
 end
 endmodule
