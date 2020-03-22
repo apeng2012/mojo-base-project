@@ -76,19 +76,18 @@ wire in_valid_run;
 assign sdram_addr = read_flash_over ? addr_run : addr_init;
 assign in_valid = read_flash_over ? in_valid_run : in_valid_init;
 
-wire [22:0] A_ram_addr;
-wire [7:0] A_data_out;
-wire A_busy;
-wire A_in_valid;
-wire A_out_valid;
-
-wire [22:0] B_ram_addr;
-wire [7:0] B_data_out;
-wire B_busy;
-wire B_in_valid;
-wire B_out_valid;
-
 wire fclk;  // 100MHz
+
+wire blk_mem_we;
+wire [7:0] blk_mem_din;
+wire [7:0] blk_mem_dout;
+wire [12:0] blk_mem_addr;
+wire [12:0] blk_mem_addr_init;
+wire [12:0] blk_mem_addr_run;
+
+assign blk_mem_addr = read_flash_over ? blk_mem_addr_run : blk_mem_addr_init;
+
+
 
 clk_wiz clk_wiz (
     .CLK_IN1(clk),
@@ -119,6 +118,11 @@ decode_nec decode_nec (
     .in_valid(in_valid_init),
     .out_valid(out_valid),
 
+    .bm_we(blk_mem_we),
+    .bm_addr(blk_mem_addr_init),
+    .bm_din(blk_mem_din),
+    .bm_dout(blk_mem_dout),
+
     .ready(avr_ready),
     .read_flash_over(read_flash_over),
     .tx(fpga_tx)
@@ -147,27 +151,12 @@ sdram sdram (
     .out_valid(out_valid)
 );
 
-arbitrate arbitrate (
-    .clk(fclk),
-    .rst(rst),
-
-    .A_ram_addr(A_ram_addr),
-    .A_data_out(A_data_out),
-    .A_busy(A_busy),
-    .A_in_valid(A_in_valid),
-    .A_out_valid(A_out_valid),
-
-    .B_ram_addr(B_ram_addr),
-    .B_data_out(B_data_out),
-    .B_busy(B_busy),
-    .B_in_valid(B_in_valid),
-    .B_out_valid(B_out_valid),
-
-    .ram_addr(addr_run),
-    .data_out(data_out[7:0]),
-    .busy(sdram_busy),
-    .in_valid(in_valid_run),
-    .out_valid(out_valid)
+blk_mem_gen blk_mem_gen (
+    .clka(fclk),
+    .wea(blk_mem_we),
+    .addra(blk_mem_addr),
+    .dina(blk_mem_din),
+    .douta(blk_mem_dout)
 );
 
 bus2c02 bus2c02 (
@@ -177,11 +166,8 @@ bus2c02 bus2c02 (
     .c2c02_addr(ppu_addr),
     .c2c02_rd(ppu_rd_n),
 
-    .ram_addr(B_ram_addr),
-    .data_out(B_data_out),
-    .busy(B_busy),
-    .in_valid(B_in_valid),
-    .out_valid(B_out_valid),
+    .blk_mem_addr(blk_mem_addr_run),
+    .blk_mem_dout(blk_mem_dout),
 
     .init_sdram_data(read_flash_over)
 );
@@ -194,11 +180,11 @@ bus6502 bus6502 (
     .c6502_rw(cpu_rw),
     .c6502_m2(cpu_m2),
 
-    .ram_addr(A_ram_addr),
-    .data_out(A_data_out),
-    .busy(A_busy),
-    .in_valid(A_in_valid),
-    .out_valid(A_out_valid),
+    .ram_addr(addr_run),
+    .data_out(data_out[7:0]),
+    .busy(sdram_busy),
+    .in_valid(in_valid_run),
+    .out_valid(out_valid),
 
     .init_sdram_data(read_flash_over)
 );

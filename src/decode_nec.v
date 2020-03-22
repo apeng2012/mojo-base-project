@@ -18,6 +18,11 @@ module decode_nec #(
     output in_valid,
     input out_valid,
 
+    output reg bm_we,
+    output reg [12:0] bm_addr,
+    output reg [7:0] bm_din,
+    input [7:0] bm_dout,
+
     input ready,  // avr ready
 
     output read_flash_over,
@@ -117,6 +122,7 @@ always @(*) begin
     sdram_din_d = sdram_din_q;
     sdram_rw_d = sdram_rw_q;
     sdram_in_valid_d = 1'b0;
+    bm_we = 1'b0;
 
     case (state_q)
         IDLE: begin
@@ -127,7 +133,7 @@ always @(*) begin
         end
 
         CMD: begin
-            spi_in_data_d = 8'h03;
+            spi_in_data_d = 8'h0B;
             start_d = 1'b1;
             if (spi_busy == 1'b1) begin
                 state_d = CMD_T;
@@ -152,7 +158,7 @@ always @(*) begin
 
         ADDR_dummy_T: begin
             if (spi_busy == 1'b0) begin
-                if (bytes_ctr_q == 15'd2) begin
+                if (bytes_ctr_q == 15'd3) begin
                     bytes_ctr_d = 15'h7FFF;
                     test_loop_cnt_d = 12'hFFF;
                     //state_d = TEST_READ_FLASH_16;
@@ -304,10 +310,10 @@ always @(*) begin
             end
         end
         READ_CHR_1_T: begin
-            if ((spi_busy == 1'b0) && (!busy)) begin
-                addr = bytes_ctr_q;
-                sdram_din_d = spi_out_data;
-                sdram_in_valid_d = 1'b1;
+            if (spi_busy == 1'b0) begin
+                bm_addr = bytes_ctr_q[12:0];
+                bm_din = spi_out_data;
+                bm_we = 1'b1;
                 if (bytes_ctr_q == 15'h1FFF) begin  // 8kB
                     cs_d = 1'b1;
                     sdram_rw_d = 1'b0;
@@ -337,6 +343,34 @@ always @(*) begin
         end
         TEST_TX_16: begin
             if (!tx_busy) begin
+                new_tx_data_d = 1'b1;
+                state_d = TEST_TX_16_T;
+            end
+        end
+        TEST_TX_16_T: begin
+            if (tx_busy) begin
+                new_tx_data_d = 1'b0;
+                if (bytes_ctr_q == 15'd255) begin
+                    state_d = OVER;
+                end else begin
+                    state_d = TEST_READ_FLASH_16;
+                end
+            end
+        end
+*/
+
+/*
+        TEST_READ_FLASH_16: begin
+            bytes_ctr_d = bytes_ctr_q + 15'd1;
+            state_d = TEST_READ_FLASH_16_T;
+        end
+        TEST_READ_FLASH_16_T: begin
+            bm_addr = bytes_ctr_q[12:0];
+            state_d = TEST_TX_16;
+        end
+        TEST_TX_16: begin
+            if (!tx_busy) begin
+                uart_dout_d = bm_dout;
                 new_tx_data_d = 1'b1;
                 state_d = TEST_TX_16_T;
             end
