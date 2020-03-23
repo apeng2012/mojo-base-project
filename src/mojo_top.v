@@ -31,18 +31,7 @@ module mojo_top(
     output flash_cs_n,
     output flash_sck,
     output flash_si,
-    input flash_so,
-
-    output sdram_clk,
-    output sdram_cle,
-    output sdram_dqm,
-    output sdram_cs,
-    output sdram_we,
-    output sdram_cas,
-    output sdram_ras,
-    output [1:0] sdram_ba,
-    output [12:0] sdram_a,
-    inout [7:0] sdram_dq
+    input flash_so
     );
 
 wire rst = ~rst_n; // make reset active high
@@ -58,23 +47,8 @@ assign spi_channel = 4'bzzzz;
 wire [7:0] ppu_data_out_run;
 assign ppu_data = ((!ppu_rd_n) && (!ppu_addr[13])) ? ppu_data_out_run : 8'bz;
 
-wire [31:0] data_in, data_out;
-wire [22:0] sdram_addr;
-wire sdram_rw;  // 1 = write, 0 = read
-wire sdram_busy;
-wire in_valid;
-wire out_valid;
-
 wire [7:0] c6502_data;
 assign cpu_data = (cpu_rw && (!cpu_rom_sel_n)) ? c6502_data : 8'bz;
-
-wire [22:0] addr_init;
-wire [22:0] addr_run;
-wire in_valid_init;
-wire in_valid_run;
-
-assign sdram_addr = read_flash_over ? addr_run : addr_init;
-assign in_valid = read_flash_over ? in_valid_run : in_valid_init;
 
 wire fclk;  // 100MHz
 
@@ -86,6 +60,15 @@ wire [12:0] blk_mem_addr_init;
 wire [12:0] blk_mem_addr_run;
 
 assign blk_mem_addr = read_flash_over ? blk_mem_addr_run : blk_mem_addr_init;
+
+wire blk_mem_prg_we;
+wire [7:0] blk_mem_prg_din;
+wire [7:0] blk_mem_prg_dout;
+wire [14:0] blk_mem_prg_addr;
+wire [14:0] blk_mem_prg_addr_init;
+wire [14:0] blk_mem_prg_addr_run;
+
+assign blk_mem_prg_addr = read_flash_over ? blk_mem_prg_addr_run : blk_mem_prg_addr_init;
 
 
 
@@ -110,13 +93,10 @@ decode_nec decode_nec (
     .sck(flash_sck),
     .cs(flash_cs_n),
 
-    .addr(addr_init),
-    .rw(sdram_rw),
-    .data_in(data_in[7:0]),
-    .data_out(data_out[7:0]),
-    .busy(sdram_busy),
-    .in_valid(in_valid_init),
-    .out_valid(out_valid),
+    .bm_prg_we(blk_mem_prg_we),
+    .bm_prg_addr(blk_mem_prg_addr_init),
+    .bm_prg_din(blk_mem_prg_din),
+    .bm_prg_dout(blk_mem_prg_dout),
 
     .bm_we(blk_mem_we),
     .bm_addr(blk_mem_addr_init),
@@ -128,35 +108,20 @@ decode_nec decode_nec (
     .tx(fpga_tx)
 );
 
-sdram sdram (
-    .clk(fclk),
-    .rst(rst),
-    .sdram_clk(sdram_clk),
-    .sdram_cle(sdram_cle),
-    .sdram_cs(sdram_cs),
-    .sdram_cas(sdram_cas),
-    .sdram_ras(sdram_ras),
-    .sdram_we(sdram_we),
-    .sdram_dqm(sdram_dqm),
-    .sdram_ba(sdram_ba),
-    .sdram_a(sdram_a),
-    .sdram_dq(sdram_dq),
-
-    .addr(sdram_addr),
-    .rw(sdram_rw),
-    .data_in(data_in),
-    .data_out(data_out),
-    .busy(sdram_busy),
-    .in_valid(in_valid),
-    .out_valid(out_valid)
-);
-
 blk_mem_gen blk_mem_gen (
     .clka(fclk),
     .wea(blk_mem_we),
     .addra(blk_mem_addr),
     .dina(blk_mem_din),
     .douta(blk_mem_dout)
+);
+
+blk_mem_prg blk_mem_prg (
+    .clka(fclk),
+    .wea(blk_mem_prg_we),
+    .addra(blk_mem_prg_addr),
+    .dina(blk_mem_prg_din),
+    .douta(blk_mem_prg_dout)
 );
 
 bus2c02 bus2c02 (
@@ -180,11 +145,8 @@ bus6502 bus6502 (
     .c6502_rw(cpu_rw),
     .c6502_m2(cpu_m2),
 
-    .ram_addr(addr_run),
-    .data_out(data_out[7:0]),
-    .busy(sdram_busy),
-    .in_valid(in_valid_run),
-    .out_valid(out_valid),
+    .blk_mem_addr(blk_mem_prg_addr_run),
+    .blk_mem_dout(blk_mem_prg_dout),
 
     .init_sdram_data(read_flash_over)
 );

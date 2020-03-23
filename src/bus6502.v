@@ -7,12 +7,9 @@ module bus6502(
     input c6502_rw,
     input c6502_m2,
 
-    /* connect module SDRAM */
-    output reg [22:0] ram_addr,
-    input [7:0] data_out,
-    input busy,
-    output in_valid,
-    input out_valid,
+    output [14:0] blk_mem_addr,
+    input [7:0] blk_mem_dout,
+
     output test,  // 测试延时多长时间启动SDRAM读
 
     input init_sdram_data  // 1 表示 数据已经准备好，可以访问
@@ -21,29 +18,30 @@ module bus6502(
 localparam STATE_SIZE = 2;
 localparam IDLE = 0,
             FETCH = 1,
+            FETCH_T = 3,
             RELEASE = 2;
 
 reg [STATE_SIZE-1:0] state_d, state_q = IDLE;
 reg is_sdram_ok_d, is_sdram_ok_q;
 reg [7:0] c6502_data_d, c6502_data_q;
-reg in_valid_d, in_valid_q;
 reg [3:0] delay_cnt_d, delay_cnt_q;
 reg delay_flag_d, delay_flag_q;
 reg test_d, test_q;
+reg [14:0] bm_addr_d, bm_addr_q;
 
 assign test = test_q;
 
 assign c6502_data = c6502_data_q;
-assign in_valid = in_valid_q;
+assign blk_mem_addr = bm_addr_q;
 
 always @(*) begin
     state_d = state_q;
     is_sdram_ok_d = is_sdram_ok_q;
-    in_valid_d = 1'b0;
     c6502_data_d = c6502_data_q;
     delay_cnt_d = delay_cnt_q;
     test_d = test_q;
     delay_flag_d = 1'b0;
+    bm_addr_d = bm_addr_q;
 
     if ((!is_sdram_ok_q) && (c6502_addr == 15'h7FFC) && (init_sdram_data)) begin
         is_sdram_ok_d = 1'b1;
@@ -58,6 +56,7 @@ always @(*) begin
                     delay_cnt_d = 0;
                     test_d = !test_q;
                     if (c6502_rw) begin
+                        bm_addr_d = c6502_addr;
                         state_d = FETCH;
                     end else begin
                         state_d = RELEASE;
@@ -69,16 +68,11 @@ always @(*) begin
         end
 
         FETCH: begin
+            state_d = RELEASE;
+
             if (is_sdram_ok_q) begin
 
-                if (!busy) begin
-                    ram_addr = {8'd1, c6502_addr};
-                    in_valid_d = 1'b1;
-                end
-                if (out_valid) begin
-                    c6502_data_d = data_out;
-                    state_d = RELEASE;
-                end
+                state_d = FETCH_T;
 
             end else begin
 
@@ -92,9 +86,13 @@ always @(*) begin
                     15'h7FFF: c6502_data_d = 8'hC0;
                     default: c6502_data_d = 8'hEA;  // 6502 nop
                 endcase
-                state_d = RELEASE;
-
             end
+
+        end
+
+        FETCH_T: begin
+            c6502_data_d = blk_mem_dout;
+            state_d = RELEASE;
         end
 
         RELEASE: begin
@@ -124,8 +122,8 @@ always @(posedge clk) begin
         delay_cnt_q <= delay_cnt_d;
     end
     c6502_data_q <= c6502_data_d;
-    in_valid_q <= in_valid_d;
     test_q <= test_d;
     delay_flag_q <= delay_flag_d;
+    bm_addr_q <= bm_addr_d;
 end
 endmodule

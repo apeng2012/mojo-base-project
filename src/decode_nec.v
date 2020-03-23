@@ -10,13 +10,10 @@ module decode_nec #(
     output sck,
     output cs,
 
-    output reg [22:0] addr,
-    output rw,
-    output [7:0] data_in,
-    input [7:0] data_out,
-    input busy,
-    output in_valid,
-    input out_valid,
+    output reg bm_prg_we,
+    output reg [14:0] bm_prg_addr,
+    output reg [7:0] bm_prg_din,
+    input [7:0] bm_prg_dout,
 
     output reg bm_we,
     output reg [12:0] bm_addr,
@@ -73,13 +70,6 @@ assign block_nouse = 1'b0;
 assign read_flash_over = (state_q == OVER) ? 1'b1 : 1'b0;
 assign cs = cs_q;
 
-reg [7:0] sdram_din_d, sdram_din_q;
-reg sdram_rw_d, sdram_rw_q;
-reg sdram_in_valid_d, sdram_in_valid_q;
-
-assign data_in = sdram_din_q;
-assign rw = sdram_rw_q;
-assign in_valid = sdram_in_valid_q;
 
 
 spi spi (
@@ -119,9 +109,7 @@ always @(*) begin
     bytes_ctr_d = bytes_ctr_q;
     test_loop_cnt_d = test_loop_cnt_q;
     delay_cnt_d = delay_cnt_q;
-    sdram_din_d = sdram_din_q;
-    sdram_rw_d = sdram_rw_q;
-    sdram_in_valid_d = 1'b0;
+    bm_prg_we = 1'b0;
     bm_we = 1'b0;
 
     case (state_q)
@@ -289,10 +277,10 @@ always @(*) begin
             end
         end
         READ_PRG_1_T: begin
-            if ((spi_busy == 1'b0) && (!busy)) begin
-                addr = bytes_ctr_q + 23'h8000;
-                sdram_din_d = spi_out_data;
-                sdram_in_valid_d = 1'b1;
+            if (spi_busy == 1'b0) begin
+                bm_prg_addr = bytes_ctr_q[14:0];
+                bm_prg_din = spi_out_data;
+                bm_prg_we = 1'b1;
                 if (bytes_ctr_q == 15'h7FFF) begin  // 32kB
                     state_d = READ_CHR_1;
                 end else begin
@@ -316,7 +304,6 @@ always @(*) begin
                 bm_we = 1'b1;
                 if (bytes_ctr_q == 15'h1FFF) begin  // 8kB
                     cs_d = 1'b1;
-                    sdram_rw_d = 1'b0;
                     //bytes_ctr_d = 15'h7FFF;
                     //state_d = TEST_READ_FLASH_16;
                     state_d = OVER;
@@ -365,12 +352,14 @@ always @(*) begin
             state_d = TEST_READ_FLASH_16_T;
         end
         TEST_READ_FLASH_16_T: begin
-            bm_addr = bytes_ctr_q[12:0];
+            //bm_addr = bytes_ctr_q[12:0];
+            bm_prg_addr = bytes_ctr_q[14:0];
             state_d = TEST_TX_16;
         end
         TEST_TX_16: begin
             if (!tx_busy) begin
-                uart_dout_d = bm_dout;
+                //uart_dout_d = bm_dout;
+                uart_dout_d = bm_prg_dout;
                 new_tx_data_d = 1'b1;
                 state_d = TEST_TX_16_T;
             end
@@ -401,13 +390,11 @@ always @(posedge clk) begin
         start_q <= 1'b0;
         new_tx_data_q <= 1'b0;
         cs_q <= 1'b1;
-        sdram_rw_q <= 1'b1;  // write
     end else begin
         state_q <= state_d;
         start_q <= start_d;
         new_tx_data_q <= new_tx_data_d;
         cs_q <= cs_d;
-        sdram_rw_q <= sdram_rw_d;
     end
 
     spi_in_data_q <= spi_in_data_d;
@@ -415,8 +402,6 @@ always @(posedge clk) begin
     bytes_ctr_q <= bytes_ctr_d;
     test_loop_cnt_q <= test_loop_cnt_d;
     delay_cnt_q <= delay_cnt_d;
-    sdram_din_q <= sdram_din_d;
-    sdram_in_valid_q <= sdram_in_valid_d;
 end
 
 endmodule

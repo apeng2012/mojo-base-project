@@ -36,13 +36,13 @@ always @(*) begin
     if (state_q == IDLE) begin
         if (!c2c02_addr[13] && old_addr_q != c2c02_addr) begin
             tmp_addr_d = c2c02_addr;
+            blk_mem_addr = c2c02_addr[12:0];
             state_d = FETCH;
         end
     end
 
     else if (state_q == FETCH) begin
         if (init_sdram_data) begin
-            blk_mem_addr = tmp_addr_q[12:0];
             state_d = FETCH_T;
         end
         else begin
